@@ -2,26 +2,72 @@
 import {io} from 'socket.io-client'
 import {ref, onBeforeMount} from 'vue'
 
-const socket = io('http://localhost:5173/');
-const message = ref([]);
+const socket = io('http://localhost:3001/');
+const messages = ref([]);
+const messageText = ref('');
+const joinned = ref(false);
+const name = ref('');
+const typingDesplay = ref('');
 onBeforeMount(()=>{
   socket.emit('findAllMessages', {}, (response)=>{
-    message.value = response;
+    messages.value = response;
   })
 })
 socket.on('newMessage', (response)=>{
-  message.value.push(response);
+  messages.value.push(response);
 })
+socket.on('typing', (name, isTyping)=>{
+  if(isTyping){
+    typingDesplay.value = `${name} is typing...`;
+  }else{
+    typingDesplay.value = '';
+  }
+})
+const join = ()=>{
+  socket.emit('join', {name: name.value}, ()=>{
+    joinned.value = true;
+  })}
+
+const sendMessage = ()=>{
+  socket.emit('createMessage', {text:messageText.value}, ()=>{
+    // messages.value.push(response);
+    messageText.value = '';
+  })
+}
+let timeout;
+const typing = ()=>{
+  socket.emit('typing', {isTyping: true}, (response)=>{
+    typingDesplay.value = response;
+    timeout = setTimeout(()=>{
+      socket.emit('typing', {isTyping: false})
+    }, 2000)
+  })
+}
 
 </script>
 
 <template>
 <div class="chat">
-  <div class="chat-container">
+  <div v-if="!joinned">
+  Ask for name
+  <form @submit.prevent="join">
+    <label for="name">Name</label>
+    <input  v-model="name" />
+    <button type="submit">Join</button>
+  </form>
+  </div>
+  <div class="chat-container" v-else>
       <div class="message-content">
         <div v-for="message in messages">
-          [{{message.name}}] : {{message.message}} - [{{message.time}}]
+          [{{message.name}}] dsdsdds: {{message.message}} - [{{message.time}}]
         </div>
+      </div>
+      <div v-if="typingDesplay">{{typingDesplay}}</div>
+      <div class="message-input">
+        <form @submit.prevent="sendMessage">
+          <input v-model="messageText" @keyup="typing" />
+          <button type="submit">Send</button>
+        </form>
       </div>
   </div>
 </div>
